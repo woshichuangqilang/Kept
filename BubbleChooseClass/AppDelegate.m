@@ -7,6 +7,10 @@
 //
 
 #import "AppDelegate.h"
+#import "BubbleChooseClassViewController.h"
+#import "XZMainViewController.h"
+#import "KLMenuViewController.h"
+#import "XZTableViewController.h"
 
 @interface AppDelegate ()
 
@@ -17,8 +21,14 @@
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
     // Override point for customization after application launch.
+    BubbleChooseClassViewController *bvc = [[BubbleChooseClassViewController alloc]initWithNibName:@"BubbleChooseClassViewController" bundle:nil];
+    self.window.rootViewController = bvc;
+    self.window.backgroundColor = [UIColor whiteColor];
+    [self.window makeKeyAndVisible];
+    
     return YES;
 }
+
 
 - (void)applicationWillResignActive:(UIApplication *)application {
     // Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
