@@ -8,11 +8,19 @@
 
 #import "KLAbsentViewController.h"
 #import "EAColourfulProgressView.h"
-
+#import "KLAbsentManager.h"
 
 @interface KLAbsentViewController ()
 
 @property (nonatomic, strong) UIAlertAction *secureTextAlertAction;
+
+// 变量absentMax记录被点到的极限值，所有课通用，如果有一门课不一样再做设置(一般为3-5）
+@property (nonatomic, assign) NSUInteger absentMax;
+@property (nonatomic, assign) NSUInteger absentNum;
+
+
+@property (nonatomic, assign) NSString *isAbsent;
+@property (nonatomic, assign) NSString *absentTime;
 
 @property (weak, nonatomic) IBOutlet UILabel *classTabel;
 @property (weak, nonatomic) IBOutlet UIButton *addNumButton;
@@ -22,8 +30,7 @@
 @property (weak, nonatomic) IBOutlet UILabel *maxLabel;
 
 @property (strong, nonatomic) EAColourfulProgressView *progressView;
-@property (strong, nonatomic) FMDatabase *db;
-
+@property (strong, nonatomic) KLAbsentManager *items;
 
 @end
 
@@ -31,21 +38,8 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    
-    // 初始化absentNum
-    if (self.absentNum) {
-        NSLog(@"num = %lu",(unsigned long)self.absentNum);
-    } else {
-        self.absentNum = 0;
-        self.addNumButton.enabled = NO;
-    }
-    
-    if (self.absentNum < 1) {
-        self.resetButton.enabled = NO;
-    }
-    
-    // 获得课程名称
-    self.classTabel.text = @"线性代数";
+
+
     
     // ProgressView
     self.progressView = [[EAColourfulProgressView alloc] initWithFrame:CGRectMake(26, 191, 235, 25)];
@@ -75,63 +69,64 @@
 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
+   
+
+    // 获得课程名称
+    
+    self.classTabel.text = self.classID;
+    
+    self.items = [KLAbsentManager sharedStore];
+    [self.items resultSet:self.classID];
+    
+    self.absentMax = self.items.absentMax;
+    self.absentNum = self.items.absentNum;
+    self.absentTime = self.items.absentTime;
+
+
     
     
-    
-#pragma mark -FMDB库
-    if ([self isTableOK:@"AbsentList"]) {
-        FMResultSet *rs = [self.db executeQuery:@"SELECT ClassName, AbsentMax, AbsentNum, isAbsent, FROM AbsentList"];
-        while ([rs next]) {
-            self.absentMax = [rs intForColumn:@"AbsentMax"];
-            self.absentNum = [rs intForColumn:@"AbsentNum"];
-        }
-        [rs close];
-//        self.absentMax = [self.db intForQuery:@"SELECT AbsentMax FROM AbsentList WHERE ClassName = ?", @"线性代数"];
-//        self.absentNum = [self.db intForQuery:@"SELECT AbsentNum FROM AbsentList WHERE ClassName = ?", @"线性代数"];
-        NSLog(@"absentMax is %lu", (unsigned long)self.absentMax);
-    } else {
-        // 1.获取数据库文件路径
-        NSString *doc = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) lastObject];
-        NSString *fileName = [doc stringByAppendingPathComponent:@"absent.sqlite"];
-        
-        // 2. 获取数据库
-        FMDatabase *db = [FMDatabase databaseWithPath:fileName];
-        
-        // 3.打开数据库
-        if ([db open]) {
-            // 4.创建
-            BOOL result = [db executeUpdate:@"CREATE TABLE AbsentList (ClassName text, AbsentMax integer, AbsentNum integer, isAbsent text, AbsentTime text)"];
-            if (result) {
-                NSLog(@"创建成功");
-            } else {
-                NSLog(@"创建失败");
-            }
-        }
-        self.db = db;
-        
-        [self.db executeUpdate:@"INSERT INTO AbsentList (ClassName, AbsentMax, AbsentNum, isAbsent, AbsentTime) VALUES (?,?,?,?,?)", @"线性代数", [NSNumber numberWithUnsignedInteger:self.absentMax], [NSNumber numberWithUnsignedInteger:self.absentNum], self.isAbsent, self.absentTime];
-        
+    if (!self.items.absentMax) {
         [self alertAndAbsentMax];
     }
     
-    //    if (self.absentMax) {
-    //
-    //    } else {
-    //
-    //    }
+    [self showMax:self.absentMax];
+    [self showNum:self.absentNum];
     
+//    // 初始化absentNum
+//    if (self.absentNum) {
+//        NSLog(@"num = %lu",(unsigned long)self.absentNum);
+//    } else {
+//        self.absentNum = 0;
+//        self.addNumButton.enabled = NO;
+//    }
+    if (self.absentNum >= self.absentMax) {
+        self.addNumButton.enabled = NO;
+        self.absentNum = self.absentMax;
+    }
+//    
+    if (self.absentNum < 1) {
+        self.resetButton.enabled = NO;
+    }
 
+    
 }
 
 - (void)showMax:(NSUInteger)max {
     NSString *text = [NSString stringWithFormat:@"%lu", max];
     self.maxLabel.text = text;
+    NSLog(@"max = %lu", self.absentMax);
+    self.progressView.maximumValue = self.absentMax;
+    [self.items updateAbsentMax:self.absentMax className:self.classID ];
 }
 
 - (void)showNum:(NSUInteger)num {
     num = self.absentMax - num;
-    NSString *text = [NSString stringWithFormat:@"%lu",num];
+    NSString *text = [NSString stringWithFormat:@"%lu", num];
     self.numLabel.text = text;
+    self.progressView.currentValue = self.absentNum;
+    [self.progressView updateToCurrentValue:self.absentNum + 1 animated:YES];
+    [self.items updateAbsentNum:self.absentNum className:self.classID];
+    NSLog(@"num = %lu",(unsigned long)self.absentNum);
 }
 
 
@@ -170,14 +165,20 @@
                                       if ( self.absentMax > 0) {
                                           NSLog(@"max = %lu", self.absentMax);
                                           self.addNumButton.enabled = self.resetButton.enabled = YES;
-                                          self.progressView.maximumValue = self.absentMax;
-                                          [self.db executeUpdate:@"UPDATE AbsentList SET AbsentMax = ?;", [NSNumber numberWithUnsignedInteger:self.absentMax]];
+                                          
                                           [self showMax:self.absentMax];
                                           [self showNum:self.absentNum];
                                           self.resetButton.enabled = NO;
                                       }
-                                      
-                                      
+                                      if (self.absentNum > self.absentMax) {
+                                          self.absentNum = self.absentMax;
+                                          [self showNum:self.absentNum];
+                                          
+                                      }
+                                      if (self.absentNum < 1) {
+                                          self.absentNum = 0;
+                                      }
+                                      self.resetButton.enabled = YES;
                                       
                                   }];
     
@@ -235,15 +236,9 @@
 
 - (IBAction)addAbsentNum:(id)sender {
     self.absentNum += 1;
-    [self.db executeUpdate:@"UPDATE AbsentList SET AbsentNum = ?;", [NSNumber numberWithUnsignedInteger:self.absentNum]];
-    NSLog(@"缺勤次数%lu",(unsigned long)self.absentNum);
-    [self showNum:self.absentNum];
-    
     if (self.absentMax && self.absentNum <= self.absentMax) {
         // 控制进度条的进度并重绘进度条
-        self.progressView.currentValue = self.absentNum;
-        [self.progressView updateToCurrentValue:self.absentNum + 1 animated:YES];
-        
+        [self showNum:self.absentNum];
     }
     
     // 如果超出了max值
@@ -271,15 +266,13 @@
     if (self.absentNum >= 1 && self.absentNum <= self.absentMax) {
         self.resetButton.enabled = YES;
         self.absentNum -= 1;
-        [self.db executeUpdate:@"UPDATE AbsentList SET AbsentNum= ?;", [NSNumber numberWithUnsignedInteger:self.absentNum]];
-        [self.progressView updateToCurrentValue:self.absentNum + 1 animated:YES];
         [self showNum:self.absentNum];
-        NSLog(@"num = %lu", self.absentNum);
+
     } else {
         self.resetButton.enabled = NO;
     }
     
-    if (self.absentNum < 1 || self.absentNum == self.absentMax) {
+    if (self.absentNum < 1 ) {
         self.resetButton.enabled = NO;
     }
     
@@ -292,31 +285,11 @@
 
 
 - (IBAction)building:(id)sender {
+
     [self alertAndAbsentMax];
 }
 
-#pragma mark -扩展（kl）
-- (BOOL)isTableOK:(NSString *)tableName
-{
-    FMResultSet *rs = [self.db executeQuery:@"select count(*) as 'count' from sqlite_master where type ='table' and name = ?", tableName];
-    while ([rs next])
-    {
-        // just print out what we've got in a number of formats.
-        NSInteger count = [rs intForColumn:@"count"];
-        NSLog(@"isTableOK %ld", (long)count);
-        
-        if (0 == count)
-        {
-            return NO;
-        }
-        else
-        {
-            return YES;
-        }
-    }
-    
-    return NO;
-}
+
 
 /*
  #pragma mark - Navigation

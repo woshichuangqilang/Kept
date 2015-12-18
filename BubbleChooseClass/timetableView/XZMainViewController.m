@@ -12,8 +12,10 @@
 #import "XZCurrentWeek.h"
 #import "KLMenuViewController.h"
 #import "KLAbsentViewController.h"
-
-@interface XZMainViewController ()<XZTimetableViewDataSourse,UIScrollViewDelegate,XZTimetableViewDelegate>
+#import "SPNavigationController.h"
+#import "KLAbsentManager.h"
+#import "JKPopMenuView.h"
+@interface XZMainViewController ()<XZTimetableViewDataSourse,UIScrollViewDelegate,XZTimetableViewDelegate, JKPopMenuViewSelectDelegate>
 {
     NSArray *arr;
 }
@@ -73,9 +75,35 @@
     return cell;
 }
 - (void)timetableView:(XZTimetableView *)timetableView didSelectCellInPosition:(XZPosition)position{
-    KLMenuViewController *menu = [[KLMenuViewController alloc]init];
+    NSMutableArray *array = [[NSMutableArray alloc] init];
+    
+    // 签到
+    JKPopMenuItem *itemSign = [JKPopMenuItem itemWithTitle:@"签到" image:[UIImage imageNamed:@"icon1"]];
+    [array addObject:itemSign];
+    [itemSign addTarget:self action:@selector(slectSignView) forControlEvents:UIControlEventTouchUpInside];
+    
+    // 缺席
+    JKPopMenuItem *itemAbsent = [JKPopMenuItem itemWithTitle:@"缺席" image:[UIImage imageNamed:@"icon2"]];
+    [array addObject:itemAbsent];
+    [itemAbsent addTarget:self action:@selector(selectAbsentView) forControlEvents:UIControlEventTouchUpInside];
+    
+    // 笔记
+    JKPopMenuItem *itemNote = [JKPopMenuItem itemWithTitle:@"笔记" image:[UIImage imageNamed:@"icon3"]];
+    [array addObject:itemNote];
+    [itemNote addTarget:self action:@selector(selectNoteView) forControlEvents:UIControlEventTouchUpInside];
+    
+    // 复习
+    JKPopMenuItem *itemRevise = [JKPopMenuItem itemWithTitle:@"复习" image:[UIImage imageNamed:@"icon4"]];
+    [array addObject:itemRevise];
+    [itemRevise addTarget:self action:@selector(selectReviseView) forControlEvents:UIControlEventTouchUpInside];
+    
+    JKPopMenuView *popView = [JKPopMenuView menuViewWithItems:array];
+    popView.delegate = self;
+    
+    [popView show];
+    
+    
 
-    [self presentViewController:menu animated:YES completion:nil];
 }
 //mainScrollView的delegate
 - (void)scrollViewWillBeginDragging:(UIScrollView *)scrollView{
@@ -87,6 +115,41 @@
     
 }
 
+// jkpop delegate
+-(void)popMenuViewSelectIndex:(NSInteger)index {
+    
+}
+
+
+#pragma mark  功能界面插入接口-----------------------------------------
+// 签到
+- (void)slectSignView {
+    NSLog(@"select sign view");
+}
+
+// 缺席
+- (void)selectAbsentView {
+    KLAbsentViewController *absent = [[KLAbsentViewController alloc] initWithNibName:@"KLAbsentViewController" bundle:nil];
+    
+    
+    [self presentViewController:absent animated:YES completion:nil];
+}
+
+// 笔记
+- (void)selectNoteView {
+    NSLog(@"select note view");
+}
+
+// 复习
+- (void)selectReviseView {
+    
+    SPNavigationController *spn = [[SPNavigationController alloc] init];
+    
+    spn.viewControllers = @[];
+    
+    [self presentViewController:spn animated:YES completion:nil];
+    
+}
 
 
 @end
